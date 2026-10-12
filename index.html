@@ -286,6 +286,7 @@ window.parent.postMessage("gd-click","*");
 <meta name="theme-color" content="#000000">
 
 <link rel="icon" href="ref/logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Chewy&display=swap" rel="stylesheet">
 
 <title>Geometry Dash WASM</title>
 
@@ -332,6 +333,15 @@ opacity:0;
 pointer-events:none;
 }
 
+#startBg{
+position:absolute;
+inset:0;
+background:url('https://typing.twi1.me/userdata/174/174042/game/551006-backgroundImage1.jpg?mt=1756892387') no-repeat center center;
+background-size:cover;
+opacity:0.3;
+z-index:-1;
+}
+
 #logoFly{
 margin-bottom:20px;
 }
@@ -362,12 +372,42 @@ transition:transform .15s;
 transform:scale(1.08);
 }
 
+#loadContainer{
+display:none;
+flex-direction:column;
+align-items:center;
+gap:12px;
+margin-top:20px;
+}
+
+#loadContainer.active{
+display:flex;
+}
+
+.abtrack{
+position:relative;
+width:260px;
+height:14px;
+background:#111;
+border:2px solid #333;
+border-radius:7px;
+overflow:hidden;
+}
+
+.abfill{
+width:0%;
+height:100%;
+background:#fff;
+border-radius:5px;
+transition:width .15s;
+}
+
 #loadPct{
-margin-top:16px;
-font-family:monospace;
-font-size:16px;
+font-family:'Chewy', cursive, monospace;
+font-size:28px;
 color:#fff;
 letter-spacing:1px;
+text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
 }
 
 #errOverlay{
@@ -400,13 +440,19 @@ display:block;
 <canvas id="canvas" width="1920" height="1080"></canvas>
 
 <div id="start">
+<div id="startBg"></div>
 <div id="logoFly">
 <img src="ref/logo.png" alt="logo" onerror="this.style.display='none'">
 </div>
 <div id="loadFly">
 <img src="ref/load.png" alt="load" onerror="this.parentElement.textContent='LOADING…';this.remove()">
 </div>
+<div id="loadContainer">
+<div class="abtrack">
+<div class="abfill" id="loadFill"></div>
+</div>
 <div id="loadPct">0%</div>
+</div>
 </div>
 
 <div id="console" style="display:none;"></div>
@@ -445,6 +491,7 @@ var gdAssetDone={wasm:false,data:false};
 var gdAssetsFell=false;
 
 var loadPctEl=document.getElementById('loadPct');
+var loadFillEl=document.getElementById('loadFill');
 
 var GD_SIZE_HINT={
 wasm:70192990,
@@ -566,7 +613,9 @@ if(gdProgDone&&p<100)return;
 p=Math.max(0,Math.min(100,p));
 if(p<gdProg&&!exact)return;
 gdProg=p;
-if(loadPctEl)loadPctEl.textContent=Math.round(gdProg)+'%';
+var rounded=Math.round(gdProg);
+if(loadPctEl)loadPctEl.textContent=rounded+'%';
+if(loadFillEl)loadFillEl.style.width=rounded+'%';
 if(p>=100){
 gdProgDone=true;
 bootDone();
@@ -580,6 +629,7 @@ gdAssetsFell=false;
 gdAssetDone={wasm:false,data:false};
 assetLoadedBytes={wasm:0,data:0};
 if(loadPctEl)loadPctEl.textContent='0%';
+if(loadFillEl)loadFillEl.style.width='0%';
 }
 
 window.gdFirstFrame=function(){
@@ -797,8 +847,13 @@ started=true;
 window.__gdLoadStarted=true;
 resetProgress();
 
+var logoFly=document.getElementById('logoFly');
 var loadFly=document.getElementById('loadFly');
+var loadContainer=document.getElementById('loadContainer');
+
+if(logoFly)logoFly.style.display='none';
 if(loadFly)loadFly.style.display='none';
+if(loadContainer)loadContainer.classList.add('active');
 
 function loadModule(){
 fetch('gd_web.js',{cache:'no-store'}).then(function(r){
