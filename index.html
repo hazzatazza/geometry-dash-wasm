@@ -362,6 +362,14 @@ transition:transform .15s;
 transform:scale(1.08);
 }
 
+#loadPct{
+margin-top:16px;
+font-family:monospace;
+font-size:16px;
+color:#fff;
+letter-spacing:1px;
+}
+
 #errOverlay{
 position:fixed;
 left:50%;
@@ -398,6 +406,7 @@ display:block;
 <div id="loadFly">
 <img src="ref/load.png" alt="load" onerror="this.parentElement.textContent='LOADING…';this.remove()">
 </div>
+<div id="loadPct">0%</div>
 </div>
 
 <div id="console" style="display:none;"></div>
@@ -434,6 +443,8 @@ var gdProg=0;
 var gdProgDone=false;
 var gdAssetDone={wasm:false,data:false};
 var gdAssetsFell=false;
+
+var loadPctEl=document.getElementById('loadPct');
 
 var GD_SIZE_HINT={
 wasm:70192990,
@@ -484,7 +495,9 @@ window.fetch=function(input,init){
 var u=typeof input==='string'?input:(input&&input.url)||'';
 var clean=u.split('?')[0].split('#')[0];
 if(clean==='gd_web.data'||clean.endsWith('/gd_web.data')){
-return gdLoadSplitFile('data',function(loaded,total){}).then(function(ab){
+return gdLoadSplitFile('data',function(loaded,total){
+setAssetBar('data',loaded,total);
+}).then(function(ab){
 return new Response(ab,{
 status:200,
 headers:{
@@ -504,15 +517,17 @@ function gdSizeHint(which){
 return which==='wasm'?GD_SIZE_HINT.wasm:GD_SIZE_HINT.data;
 }
 
-function gdLearnedSize(which){
-try{
-return Number(localStorage.getItem(which==='wasm'?'gdWasmSize':'gdDataSize'))||0;
-}catch(e){
-return 0;
-}
-}
+var assetLoadedBytes={wasm:0,data:0};
 
 function setAssetBar(which,loaded,total){
+assetLoadedBytes[which]=loaded;
+var totalWasm=GD_SIZE_HINT.wasm;
+var totalData=GD_SIZE_HINT.data;
+var totalCombined=totalWasm+totalData;
+var currentCombined=assetLoadedBytes.wasm+assetLoadedBytes.data;
+var p=Math.min(95,(currentCombined/totalCombined)*95);
+setProgress(p);
+
 var learned=gdLearnedSize(which);
 var hint=gdSizeHint(which);
 var known=hint>0?hint:(learned>0?learned:(total>0?total:0));
@@ -523,6 +538,14 @@ localStorage.setItem(which==='wasm'?'gdWasmSize':'gdDataSize',String(Math.max(lo
 }catch(e){}
 }
 if(gdAssetDone.wasm&&gdAssetDone.data)assetsDone();
+}
+
+function gdLearnedSize(which){
+try{
+return Number(localStorage.getItem(which==='wasm'?'gdWasmSize':'gdDataSize'))||0;
+}catch(e){
+return 0;
+}
 }
 
 function forceAssetsDone(){
@@ -543,6 +566,7 @@ if(gdProgDone&&p<100)return;
 p=Math.max(0,Math.min(100,p));
 if(p<gdProg&&!exact)return;
 gdProg=p;
+if(loadPctEl)loadPctEl.textContent=Math.round(gdProg)+'%';
 if(p>=100){
 gdProgDone=true;
 bootDone();
@@ -554,6 +578,8 @@ gdProgDone=false;
 gdProg=0;
 gdAssetsFell=false;
 gdAssetDone={wasm:false,data:false};
+assetLoadedBytes={wasm:0,data:0};
+if(loadPctEl)loadPctEl.textContent='0%';
 }
 
 window.gdFirstFrame=function(){
@@ -569,11 +595,11 @@ if(df){
 for(var k in df){
 var e=df[k];
 var which=/wasm/i.test(k)?'wasm':(/\.data/i.test(k)?'data':null);
-if(which)setAssetBar(which,e.loaded||0,e.total||0);
+if(which)setAssetBar(which,(e&&e.loaded)||0,(e&&e.total)||0);
 }
 }
-}else if(gdProg<78){
-setProgress(gdProg+0.35);
+}else if(gdProg<98){
+setProgress(gdProg+0.5);
 }
 }
 
@@ -734,16 +760,16 @@ onRuntimeInitialized:function(){
 window.__gdRuntimeReady=true;
 if(!GD_DEBUG&&Module._gd_log_set)Module._gd_log_set(0);
 if(/[?&]noauto/.test(location.search)&&Module._gd_autosave_set)Module._gd_autosave_set(0);
-setProgress(82);
+setProgress(85);
 try{
 Module.FS.chdir('/Resources');
 }catch(e){}
 setTimeout(function(){
 restoreSaves(function(){
-setProgress(88);
+setProgress(92);
 try{
 const r=Module._gd_boot();
-setProgress(92);
+setProgress(96);
 if(r&&typeof r.then==='function'){
 r.then(function(){
 setProgress(100);
@@ -771,14 +797,8 @@ started=true;
 window.__gdLoadStarted=true;
 resetProgress();
 
-var startEl=document.getElementById('start');
-startEl.classList.add('hide');
-
-setTimeout(function(){
-startEl.style.display='none';
-window.__gdInputReady=true;
-if(window.__gdAckFocus)window.__gdAckFocus();
-},420);
+var loadFly=document.getElementById('loadFly');
+if(loadFly)loadFly.style.display='none';
 
 function loadModule(){
 fetch('gd_web.js',{cache:'no-store'}).then(function(r){
@@ -793,6 +813,22 @@ forceAssetsDone();
 });
 }
 loadModule();
+
+var checkReadyInterval=setInterval(function(){
+if(window.__gdRuntimeReady&&window.__gdGotFrame){
+clearInterval(checkReadyInterval);
+setProgress(100);
+var startEl=document.getElementById('start');
+if(startEl){
+startEl.classList.add('hide');
+setTimeout(function(){
+startEl.style.display='none';
+window.__gdInputReady=true;
+if(window.__gdAckFocus)window.__gdAckFocus();
+},420);
+}
+}
+},100);
 }
 
 document.getElementById('loadFly').addEventListener('click',gdStart);
